@@ -1,4 +1,4 @@
-.PHONY: help install install-dev test test-cov lint format type-check clean build docs
+.PHONY: help install install-dev test test-cov lint format type-check clean build docs check
 
 help:
 	@echo "Available commands:"
@@ -9,6 +9,7 @@ help:
 	@echo "  make lint         Run linting (ruff)"
 	@echo "  make format       Format code (black)"
 	@echo "  make type-check   Run type checking (mypy)"
+	@echo "  make check        Run all code quality checks"
 	@echo "  make clean        Clean build artifacts"
 	@echo "  make build        Build distribution packages"
 	@echo "  make docs         Build documentation"
@@ -35,6 +36,8 @@ format:
 
 type-check:
 	mypy src
+
+check: format lint type-check test
 
 clean:
 	rm -rf build/

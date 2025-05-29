@@ -5,8 +5,8 @@ This package provides functionality to organize files into categories based on t
 file extensions, with support for archiving old files and preview mode.
 """
 
-from tidydir.organizer import FileOrganizer, FileCategory, OrganizeResult
 from tidydir.categories import CATEGORY_EXTENSIONS
+from tidydir.organizer import FileCategory, FileOrganizer, OrganizeResult
 
 __version__ = "0.1.0"
 __author__ = "thraal"
