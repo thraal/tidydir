@@ -17,7 +17,7 @@ class TestIntegration:
     @pytest.fixture
     def test_dir(self):
         """Create a test directory with various files."""
-        test_dir = Path(tempfile.mkdtemp())
+        test_dir = Path(tempfile.mkdtemp()).resolve()  # Resolve path immediately
 
         # Create test files
         files = [
@@ -95,10 +95,38 @@ class TestIntegration:
         assert not (test_dir / "document.pdf").exists()
         assert not (test_dir / "photo.jpg").exists()
 
+    def test_simple_subdirectory_organization(self, test_dir):
+        """Simple test for subdirectory file organization."""
+        # Create a simple structure
+        subdir = test_dir / "mysubdir"
+        subdir.mkdir()
+        test_file = subdir / "test.txt"
+        test_file.write_text("test content")
+        
+        # Verify file exists
+        assert test_file.exists()
+        
+        # Organize with subdirs
+        organizer = FileOrganizer(source_dir=test_dir, include_subdirs=True)
+        
+        # Check file is found
+        files = organizer.get_files_to_organize()
+        assert any(f.name == "test.txt" for f in files), "File in subdirectory should be found"
+        
+        # Execute
+        result = organizer.execute()
+        assert result.moved_count >= 1, "At least one file should be moved"
+        assert len(result.errors) == 0, f"No errors expected, but got: {result.errors}"
+        
+        # Check file was moved
+        assert (test_dir / "Text" / "test.txt").exists(), "File should be in Text directory"
+        assert not test_file.exists(), "Original file should be gone"
+
     def test_organization_with_subdirs(self, test_dir):
         """Test organization including subdirectories."""
         # First, verify the nested file exists
-        assert (test_dir / "subdir" / "nested.txt").exists()
+        nested_file_path = test_dir / "subdir" / "nested.txt"
+        assert nested_file_path.exists(), f"Nested file should exist at {nested_file_path}"
 
         organizer = FileOrganizer(source_dir=test_dir, include_subdirs=True)
 
@@ -107,17 +135,31 @@ class TestIntegration:
         nested_files = [f for f in files if f.name == "nested.txt"]
         assert (
             len(nested_files) == 1
-        ), "Nested file should be found when include_subdirs=True"
+        ), f"Nested file should be found when include_subdirs=True. Found files: {[str(f) for f in files]}"
 
+        # Execute organization
         result = organizer.execute()
-
-        # Check nested file was moved
-        assert (
-            test_dir / "Text" / "nested.txt"
-        ).exists(), "Nested file should be in Text directory"
-        assert not (
-            test_dir / "subdir" / "nested.txt"
-        ).exists(), "Original nested file should be gone"
+        
+        # Check if there were any errors
+        if result.errors:
+            print(f"Errors during execution: {result.errors}")
+        
+        # The file should have been moved to Text directory
+        expected_location = test_dir / "Text" / "nested.txt"
+        
+        # Debug: Check what files exist in the Text directory
+        text_dir = test_dir / "Text"
+        if text_dir.exists():
+            text_files = list(text_dir.iterdir())
+            assert len(text_files) > 0, f"Text directory exists but is empty. Contents of test_dir: {list(test_dir.rglob('*'))}"
+            assert expected_location.exists(), f"nested.txt not found in Text dir. Files in Text: {[f.name for f in text_files]}"
+        else:
+            # If Text directory doesn't exist, list what directories do exist
+            dirs = [d for d in test_dir.iterdir() if d.is_dir()]
+            assert False, f"Text directory doesn't exist. Directories found: {[d.name for d in dirs]}"
+            
+        # Original file should be gone
+        assert not nested_file_path.exists(), "Original nested file should be gone"
 
     def test_organization_with_target(self, test_dir):
         """Test organization to different target directory."""
