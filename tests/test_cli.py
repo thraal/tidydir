@@ -1,10 +1,10 @@
 """Tests for the CLI module."""
 
-import pytest
-from unittest.mock import patch, MagicMock
-from pathlib import Path
+from unittest.mock import MagicMock, patch
 
-from tidydir.cli import create_parser, confirm_action, main
+import pytest
+
+from tidydir.cli import confirm_action, create_parser, main
 
 
 class TestCLI:

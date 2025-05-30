@@ -1,14 +1,15 @@
 """Tests for the FileOrganizer class."""
 
 import os
-import tempfile
 import shutil
-from pathlib import Path
+import tempfile
 from datetime import datetime, timedelta
+from pathlib import Path
+
 import pytest
 
-from tidydir.organizer import FileOrganizer, FileCategory, OrganizeResult
 from tidydir.categories import CATEGORY_EXTENSIONS
+from tidydir.organizer import FileCategory, FileOrganizer, OrganizeResult
 
 
 class TestFileOrganizer:

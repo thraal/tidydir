@@ -1,14 +1,14 @@
 """Integration tests for TidyDir."""
 
-import tempfile
-import shutil
-from pathlib import Path
-from datetime import datetime, timedelta
 import os
+import shutil
+import tempfile
+from datetime import datetime, timedelta
+from pathlib import Path
 
 import pytest
 
-from tidydir import FileOrganizer, FileCategory
+from tidydir import FileOrganizer
 
 
 class TestIntegration:
@@ -133,9 +133,10 @@ class TestIntegration:
         # Get files to organize
         files = organizer.get_files_to_organize()
         nested_files = [f for f in files if f.name == "nested.txt"]
-        assert (
-            len(nested_files) == 1
-        ), f"Nested file should be found when include_subdirs=True. Found files: {[str(f) for f in files]}"
+        assert len(nested_files) == 1, (
+            f"Nested file should be found when include_subdirs=True. "
+            f"Found files: {[str(f) for f in files]}"
+        )
 
         # Execute organization
         result = organizer.execute()
@@ -151,18 +152,19 @@ class TestIntegration:
         text_dir = test_dir / "Text"
         if text_dir.exists():
             text_files = list(text_dir.iterdir())
-            assert (
-                len(text_files) > 0
-            ), f"Text directory exists but is empty. Contents of test_dir: {list(test_dir.rglob('*'))}"
+            assert len(text_files) > 0, (
+                "Text directory exists but is empty. "
+                f"Contents of test_dir: {list(test_dir.rglob('*'))}"
+            )
             assert (
                 expected_location.exists()
             ), f"nested.txt not found in Text dir. Files in Text: {[f.name for f in text_files]}"
         else:
             # If Text directory doesn't exist, list what directories do exist
             dirs = [d for d in test_dir.iterdir() if d.is_dir()]
-            assert (
-                False
-            ), f"Text directory doesn't exist. Directories found: {[d.name for d in dirs]}"
+            raise AssertionError(
+                f"Text directory doesn't exist. Directories found: {[d.name for d in dirs]}"
+            )
 
         # Original file should be gone
         assert not nested_file_path.exists(), "Original nested file should be gone"
@@ -172,7 +174,7 @@ class TestIntegration:
         target_dir = test_dir / "organized"
         organizer = FileOrganizer(source_dir=test_dir, target_dir=target_dir)
 
-        result = organizer.execute()
+        organizer.execute()
 
         # Files should be in target directory
         assert (target_dir / "Documents" / "document.pdf").exists()
@@ -205,7 +207,7 @@ class TestIntegration:
         files_before = list(test_dir.glob("*.*"))
 
         # Preview
-        operations = organizer.preview()
+        organizer.preview()
 
         # Check files haven't moved
         files_after = list(test_dir.glob("*.*"))
@@ -221,7 +223,7 @@ class TestIntegration:
         organizer = FileOrganizer(source_dir=test_dir, enable_logging=True)
 
         # Execute organization
-        result = organizer.execute()
+        organizer.execute()
 
         # Force close all handlers to ensure file is written
         organizer.close_logging()
@@ -231,16 +233,26 @@ class TestIntegration:
 
         time.sleep(0.2)
 
-        # Check log file was created
+        # Check log file was created - it should NOT be moved
         log_files = list(test_dir.glob("tidydir_*.log"))
+
+        # If not found in root, check if it was moved to Text (which would be a bug)
         if len(log_files) == 0:
+            text_dir = test_dir / "Text"
+            if text_dir.exists():
+                moved_logs = list(text_dir.glob("tidydir_*.log"))
+                if moved_logs:
+                    raise AssertionError(
+                        f"Log file was incorrectly moved to Text directory: {moved_logs}"
+                    )
+
             # Debug: list all files in directory
-            all_files = list(test_dir.iterdir())
-            print(f"No log files found. All files in {test_dir}: {[f.name for f in all_files]}")
+            all_files = list(test_dir.rglob("tidydir_*.log"))
+            print(f"Log files found anywhere: {all_files}")
 
         assert (
             len(log_files) >= 1
-        ), f"Expected at least 1 log file, found {len(log_files)} in {test_dir}"
+        ), f"Expected at least 1 log file in {test_dir}, found {len(log_files)}"
 
         # Check log has content (use the first log file)
         if log_files:

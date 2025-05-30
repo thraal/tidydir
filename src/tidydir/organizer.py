@@ -2,16 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import shutil
-import logging
-from pathlib import Path
-from datetime import datetime, timedelta
-from dataclasses import dataclass, field
-from typing import DefaultDict, Optional
 from collections import defaultdict
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from pathlib import Path
 
-from tidydir.categories import FileCategory, CATEGORY_EXTENSIONS
+from tidydir.categories import CATEGORY_EXTENSIONS, FileCategory
 
 
 @dataclass
@@ -40,7 +39,7 @@ class FileOrganizer:
     def __init__(
         self,
         source_dir: str | Path,
-        target_dir: Optional[str | Path] = None,
+        target_dir: str | Path | None = None,
         include_subdirs: bool = False,
         old_files_days: int = 365,
         enable_logging: bool = False,
@@ -69,7 +68,7 @@ class FileOrganizer:
         self.errors: list[tuple[Path, str]] = []
 
         # Setup logging if enabled
-        self.logger: Optional[logging.Logger] = self._setup_logging() if enable_logging else None
+        self.logger: logging.Logger | None = self._setup_logging() if enable_logging else None
 
     def __del__(self) -> None:
         """Cleanup when object is deleted."""
@@ -187,11 +186,20 @@ class FileOrganizer:
         """
         files: list[Path] = []
 
+        # Get the log filename pattern to exclude
+        log_pattern = "tidydir_*.log"
+
         try:
             if self.include_subdirs:
-                files = [item for item in self.source_dir.rglob("*") if item.is_file()]
+                all_files = [item for item in self.source_dir.rglob("*") if item.is_file()]
             else:
-                files = [item for item in self.source_dir.iterdir() if item.is_file()]
+                all_files = [item for item in self.source_dir.iterdir() if item.is_file()]
+
+            # Filter out log files
+            for file in all_files:
+                if not file.match(log_pattern):
+                    files.append(file)
+
         except OSError as e:
             if self.logger:
                 self.logger.error(f"Error reading directory: {e}")
@@ -230,7 +238,7 @@ class FileOrganizer:
 
         return target_path
 
-    def preview(self) -> DefaultDict[str, list[FileOperation]]:
+    def preview(self) -> defaultdict[str, list[FileOperation]]:
         """
         Generate preview of operations without executing them.
 
@@ -238,7 +246,7 @@ class FileOrganizer:
             Dictionary mapping target directories to file operations
         """
         files = self.get_files_to_organize()
-        operations: DefaultDict[str, list[FileOperation]] = defaultdict(list)
+        operations: defaultdict[str, list[FileOperation]] = defaultdict(list)
 
         # Reset conflicts for new preview
         self.conflicts.clear()
@@ -256,7 +264,7 @@ class FileOrganizer:
 
         return operations
 
-    def print_preview(self, operations: DefaultDict[str, list[FileOperation]]) -> None:
+    def print_preview(self, operations: defaultdict[str, list[FileOperation]]) -> None:
         """
         Print preview in tree format.
 
@@ -270,8 +278,8 @@ class FileOrganizer:
             return
 
         # Organize by directory structure
-        tree: DefaultDict[FileCategory, list[FileOperation]] = defaultdict(list)
-        archive_tree: DefaultDict[FileCategory, list[FileOperation]] = defaultdict(list)
+        tree: defaultdict[FileCategory, list[FileOperation]] = defaultdict(list)
+        archive_tree: defaultdict[FileCategory, list[FileOperation]] = defaultdict(list)
 
         for parent_dir, file_ops in operations.items():
             parent_path = Path(parent_dir)
@@ -319,7 +327,7 @@ class FileOrganizer:
         print(f"Total files to organize: {total_files}")
 
         # Category breakdown
-        category_counts: DefaultDict[FileCategory, int] = defaultdict(int)
+        category_counts: defaultdict[FileCategory, int] = defaultdict(int)
         old_files_count = 0
         for file_ops in operations.values():
             for file_op in file_ops:
