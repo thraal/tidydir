@@ -22,7 +22,7 @@ class TestFileOrganizer:
         # Force cleanup on Windows
         import os
         import stat
-        
+
         def remove_readonly(func, path, _exc_info):
             """Error handler for Windows readonly files."""
             os.chmod(path, stat.S_IWRITE)
