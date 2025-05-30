@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
-import logging
 import os
 import shutil
-from collections import defaultdict
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+import logging
 from pathlib import Path
+from datetime import datetime, timedelta
+from dataclasses import dataclass, field
+from typing import DefaultDict, Optional
+from collections import defaultdict
 
-from tidydir.categories import CATEGORY_EXTENSIONS, FileCategory
+from tidydir.categories import FileCategory, CATEGORY_EXTENSIONS
 
 
 @dataclass
@@ -39,7 +40,7 @@ class FileOrganizer:
     def __init__(
         self,
         source_dir: str | Path,
-        target_dir: str | Path | None = None,
+        target_dir: Optional[str | Path] = None,
         include_subdirs: bool = False,
         old_files_days: int = 365,
         enable_logging: bool = False,
@@ -68,7 +69,7 @@ class FileOrganizer:
         self.errors: list[tuple[Path, str]] = []
 
         # Setup logging if enabled
-        self.logger: logging.Logger | None = self._setup_logging() if enable_logging else None
+        self.logger: Optional[logging.Logger] = self._setup_logging() if enable_logging else None
 
     def __del__(self) -> None:
         """Cleanup when object is deleted."""
@@ -87,6 +88,9 @@ class FileOrganizer:
         log_filename = f'tidydir_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log'
         log_file = self.target_dir / log_filename
 
+        # Ensure target directory exists
+        self.target_dir.mkdir(parents=True, exist_ok=True)
+
         # Create a unique logger for this instance
         logger_name = f"tidydir.{id(self)}"
         logger = logging.getLogger(logger_name)
@@ -98,13 +102,16 @@ class FileOrganizer:
         # Create formatters and handlers
         formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
 
-        file_handler = logging.FileHandler(log_file)
+        file_handler = logging.FileHandler(log_file, mode="a")
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
 
         console_handler = logging.StreamHandler()
         console_handler.setFormatter(formatter)
         logger.addHandler(console_handler)
+
+        # Log initial message to ensure file is created
+        logger.info(f"TidyDir logging started for {self.source_dir}")
 
         return logger
 
@@ -223,7 +230,7 @@ class FileOrganizer:
 
         return target_path
 
-    def preview(self) -> defaultdict[str, list[FileOperation]]:
+    def preview(self) -> DefaultDict[str, list[FileOperation]]:
         """
         Generate preview of operations without executing them.
 
@@ -231,7 +238,7 @@ class FileOrganizer:
             Dictionary mapping target directories to file operations
         """
         files = self.get_files_to_organize()
-        operations: defaultdict[str, list[FileOperation]] = defaultdict(list)
+        operations: DefaultDict[str, list[FileOperation]] = defaultdict(list)
 
         # Reset conflicts for new preview
         self.conflicts.clear()
@@ -249,7 +256,7 @@ class FileOrganizer:
 
         return operations
 
-    def print_preview(self, operations: defaultdict[str, list[FileOperation]]) -> None:
+    def print_preview(self, operations: DefaultDict[str, list[FileOperation]]) -> None:
         """
         Print preview in tree format.
 
@@ -263,8 +270,8 @@ class FileOrganizer:
             return
 
         # Organize by directory structure
-        tree: defaultdict[FileCategory, list[FileOperation]] = defaultdict(list)
-        archive_tree: defaultdict[FileCategory, list[FileOperation]] = defaultdict(list)
+        tree: DefaultDict[FileCategory, list[FileOperation]] = defaultdict(list)
+        archive_tree: DefaultDict[FileCategory, list[FileOperation]] = defaultdict(list)
 
         for parent_dir, file_ops in operations.items():
             parent_path = Path(parent_dir)
@@ -312,7 +319,7 @@ class FileOrganizer:
         print(f"Total files to organize: {total_files}")
 
         # Category breakdown
-        category_counts: defaultdict[FileCategory, int] = defaultdict(int)
+        category_counts: DefaultDict[FileCategory, int] = defaultdict(int)
         old_files_count = 0
         for file_ops in operations.values():
             for file_op in file_ops:

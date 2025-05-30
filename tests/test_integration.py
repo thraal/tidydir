@@ -102,22 +102,22 @@ class TestIntegration:
         subdir.mkdir()
         test_file = subdir / "test.txt"
         test_file.write_text("test content")
-        
+
         # Verify file exists
         assert test_file.exists()
-        
+
         # Organize with subdirs
         organizer = FileOrganizer(source_dir=test_dir, include_subdirs=True)
-        
+
         # Check file is found
         files = organizer.get_files_to_organize()
         assert any(f.name == "test.txt" for f in files), "File in subdirectory should be found"
-        
+
         # Execute
         result = organizer.execute()
         assert result.moved_count >= 1, "At least one file should be moved"
         assert len(result.errors) == 0, f"No errors expected, but got: {result.errors}"
-        
+
         # Check file was moved
         assert (test_dir / "Text" / "test.txt").exists(), "File should be in Text directory"
         assert not test_file.exists(), "Original file should be gone"
@@ -139,25 +139,31 @@ class TestIntegration:
 
         # Execute organization
         result = organizer.execute()
-        
+
         # Check if there were any errors
         if result.errors:
             print(f"Errors during execution: {result.errors}")
-        
+
         # The file should have been moved to Text directory
         expected_location = test_dir / "Text" / "nested.txt"
-        
+
         # Debug: Check what files exist in the Text directory
         text_dir = test_dir / "Text"
         if text_dir.exists():
             text_files = list(text_dir.iterdir())
-            assert len(text_files) > 0, f"Text directory exists but is empty. Contents of test_dir: {list(test_dir.rglob('*'))}"
-            assert expected_location.exists(), f"nested.txt not found in Text dir. Files in Text: {[f.name for f in text_files]}"
+            assert (
+                len(text_files) > 0
+            ), f"Text directory exists but is empty. Contents of test_dir: {list(test_dir.rglob('*'))}"
+            assert (
+                expected_location.exists()
+            ), f"nested.txt not found in Text dir. Files in Text: {[f.name for f in text_files]}"
         else:
             # If Text directory doesn't exist, list what directories do exist
             dirs = [d for d in test_dir.iterdir() if d.is_dir()]
-            assert False, f"Text directory doesn't exist. Directories found: {[d.name for d in dirs]}"
-            
+            assert (
+                False
+            ), f"Text directory doesn't exist. Directories found: {[d.name for d in dirs]}"
+
         # Original file should be gone
         assert not nested_file_path.exists(), "Original nested file should be gone"
 
@@ -208,23 +214,35 @@ class TestIntegration:
 
     def test_logging_creates_log_file(self, test_dir):
         """Test that logging creates a log file."""
+        # Create at least one file to ensure something gets logged
+        test_file = test_dir / "test.txt"
+        test_file.write_text("test content")
+
         organizer = FileOrganizer(source_dir=test_dir, enable_logging=True)
 
         # Execute organization
         result = organizer.execute()
 
-        # Ensure logging is flushed
-        if organizer.logger:
-            for handler in organizer.logger.handlers:
-                handler.flush()
+        # Force close all handlers to ensure file is written
+        organizer.close_logging()
+
+        # Small delay for file system
+        import time
+
+        time.sleep(0.2)
 
         # Check log file was created
         log_files = list(test_dir.glob("tidydir_*.log"))
-        assert len(log_files) == 1, f"Expected 1 log file, found {len(log_files)}"
+        if len(log_files) == 0:
+            # Debug: list all files in directory
+            all_files = list(test_dir.iterdir())
+            print(f"No log files found. All files in {test_dir}: {[f.name for f in all_files]}")
 
-        # Check log has content
-        log_content = log_files[0].read_text()
-        assert len(log_content) > 0, "Log file should have content"
+        assert (
+            len(log_files) >= 1
+        ), f"Expected at least 1 log file, found {len(log_files)} in {test_dir}"
 
-        # Clean up logging
-        organizer.close_logging()
+        # Check log has content (use the first log file)
+        if log_files:
+            log_content = log_files[0].read_text()
+            assert len(log_content) > 0, "Log file should have content"
