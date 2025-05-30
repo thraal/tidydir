@@ -1042,7 +1042,6 @@ CATEGORY_EXTENSIONS: dict[FileCategory, set[str]] = {
         ".mrp",
         ".xrpt",
         ".csv",
-        ".txt",
         ".drc",
         ".bgn",
         ".bit",
