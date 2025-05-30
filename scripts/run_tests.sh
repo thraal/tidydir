@@ -1,5 +1,5 @@
 #!/bin/bash
-# Run all tests with coverage and formatting checks
+# Run all tests with coverage and formatting checks.
 
 echo "🧹 Running code formatters..."
 black src tests
